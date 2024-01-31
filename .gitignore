@@ -1,0 +1,3 @@
+*.nd
+zig-cache
+zig-out
