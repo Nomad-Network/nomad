@@ -18,13 +18,17 @@ deleted_offset: u64 = 0,
 allocator: std.mem.Allocator,
 
 pub fn init(allocator: std.mem.Allocator, content: []const u8) Self {
-    const is_valid = content.len >= 28 and std.mem.eql(u8, "xND", content[0..2]) and content[3] == 0; // xND\0
+    const is_valid = content.len >= 28 and std.mem.eql(u8, "xND", content[0..3]) and content[3] == 0; // xND\0
 
-    if (!is_valid) return Self.default(allocator);
+    if (!is_valid) {
+        var header = Self.default(allocator);
+        header.is_valid = false;
+        return header;
+    }
 
-    const lookup_offset = utils.eightBytesToU64(content[4..12]);
-    const records_offset = utils.eightBytesToU64(content[12..20]);
-    const deleted_offset = utils.eightBytesToU64(content[20..28]);
+    const lookup_offset = utils.eightBytesToU64(content[5..13]);
+    const records_offset = utils.eightBytesToU64(content[13..21]);
+    const deleted_offset = utils.eightBytesToU64(content[21..29]);
 
     return Self{
         .is_valid = is_valid,
@@ -32,9 +36,9 @@ pub fn init(allocator: std.mem.Allocator, content: []const u8) Self {
         .records_offset = records_offset,
         .deleted_offset = deleted_offset,
 
-        .lookup_len = lookup_offset - records_offset,
-        .records_len = records_offset - deleted_offset,
-        .deleted_len = deleted_offset - content.len,
+        .lookup_len = records_offset - lookup_offset,
+        .records_len = deleted_offset - records_offset,
+        .deleted_len = content.len - deleted_offset,
 
         .allocator = allocator,
     };
@@ -43,9 +47,11 @@ pub fn init(allocator: std.mem.Allocator, content: []const u8) Self {
 pub fn default(allocator: std.mem.Allocator) Self {
     return Self{
         .is_valid = true,
-        .lookup_offset = 28,
-        .records_offset = 28,
-        .deleted_offset = 28,
+
+        // For a new nomad data file, the offsets are all set to just after the header
+        .lookup_offset = Self.getSize(),
+        .records_offset = Self.getSize(),
+        .deleted_offset = Self.getSize(),
 
         .lookup_len = 0,
         .records_len = 0,
@@ -71,4 +77,8 @@ pub fn serialize(self: Self) ![]u8 {
     try serialized.appendSlice(&utils.u64ToEightBytes(self.deleted_len, .little));
 
     return serialized.items;
+}
+
+pub fn getSize() comptime_int {
+    return @sizeOf(Self) - @sizeOf(std.mem.Allocator) - 3;
 }

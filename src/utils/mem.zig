@@ -2,39 +2,31 @@ const std = @import("std");
 
 pub fn fourBytesToU32(bytes: *const [4]u8) u32 {
     const number: u32 = @bitCast(bytes.*);
-    return number;
+    return std.mem.nativeTo(u32, number, .little);
 }
 
 pub fn eightBytesToU64(bytes: *const [8]u8) u64 {
     const number: u64 = @bitCast(bytes.*);
-    return number;
+    return std.mem.nativeTo(u64, number, .little);
 }
 
 pub fn sixteenBytesToU128(bytes: *const [16]u8) u128 {
     const number: u128 = @bitCast(bytes.*);
-    return number;
+    return std.mem.nativeTo(u128, number, .little);
+}
+
+pub fn u32ToFourBytes(number: u32, endianess: std.builtin.Endian) [4]u8 {
+    const little_number = std.mem.nativeTo(u32, number, endianess);
+    const slice: [4]u8 = @bitCast(little_number);
+
+    return slice;
 }
 
 pub fn u128ToSixteenBytes(number: u128, endianess: std.builtin.Endian) [16]u8 {
     const little_number = std.mem.nativeTo(u128, number, endianess);
-    return [16]u8{
-        little_number >> 120,
-        (little_number >> 112) << 8,
-        (little_number >> 104) << 16,
-        (little_number >> 96) << 24,
-        (little_number >> 88) << 32,
-        (little_number >> 80) << 40,
-        (little_number >> 72) << 48,
-        (little_number >> 64) << 56,
-        (little_number >> 56) << 64,
-        (little_number >> 48) << 72,
-        (little_number >> 40) << 80,
-        (little_number >> 32) << 88,
-        (little_number >> 24) << 96,
-        (little_number >> 16) << 104,
-        (little_number >> 8) << 112,
-        little_number << 120,
-    };
+    const slice: [16]u8 = @bitCast(little_number);
+
+    return slice;
 }
 
 pub fn u64ToEightBytes(number: u64, endianess: std.builtin.Endian) [8]u8 {
@@ -42,6 +34,33 @@ pub fn u64ToEightBytes(number: u64, endianess: std.builtin.Endian) [8]u8 {
     const mem: [8]u8 = @bitCast(little_number);
 
     return mem;
+}
+
+pub fn sliceToU64(slice: []u8) u64 {
+    if (slice.len != 8) return 0;
+    std.mem.reverse(u8, slice);
+    var r: u64 = 0;
+
+    for (slice, 0..) |v, i| {
+        const up_v: u64 = v;
+        const shift_amt: u6 = @intCast(i);
+        r += @shlExact(up_v, (7 - shift_amt) * 8);
+    }
+
+    return r;
+}
+
+pub fn sliceToSizedArray(comptime T: type, comptime size: usize, src: []const T, dst: *const [size]T) *const [size]T {
+    var i: u64 = 0;
+    var tmp_dst = dst.*;
+
+    while (i < size) {
+        tmp_dst[i] = src[i];
+        i += 1;
+    }
+
+    const r = tmp_dst;
+    return &r;
 }
 
 test "fourBytesToU32" {

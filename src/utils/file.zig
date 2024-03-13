@@ -22,8 +22,7 @@ pub fn readFile(allocator: std.mem.Allocator, path: []const u8) ![]const u8 {
 }
 
 pub fn fileExists(path: []const u8, options: FileExistsOptions) bool {
-    _ = std.fs.cwd().createFile(path, .{ .exclusive = true }) catch |e|
-        switch (e) {
+    _ = std.fs.cwd().createFile(path, .{ .exclusive = true }) catch |e| switch (e) {
         error.PathAlreadyExists => {
             return true;
         },
