@@ -39,8 +39,8 @@
         //    .path = "foo",
         //},
         .clap = .{
-            .url = "https://github.com/Hejsil/zig-clap/tarball/master",
-            .hash = "12209e829da9d7d0bc089e4e0cbc07bb882f6192cd583277277da34df53cd05b8f2a",
+            .url = "git+https://github.com/Hejsil/zig-clap?ref=master#e9207ad2b86131fa9f0dfbd5c68cafd67f00fe64",
+            .hash = "1220cb2f28680ef73c1020bfd8c7b08de38821b0bc19b5469f60dcf813f1d8455dbd",
         },
     },
 

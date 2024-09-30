@@ -3,27 +3,35 @@ const mem_utils = @import("../utils/mem.zig");
 
 const Self = @This();
 
-const RecordsErr = error{RecordInvalid};
+const RecordsErr = error{ RecordInvalid, RecordDataLengthTooLong };
 
 owner: [64]u8,
-data: [2048]u8,
+data: []u8,
 permissions: u8,
 last_ping: i128,
-allocator: std.mem.Allocator,
+gpa: std.heap.GeneralPurposeAllocator(.{}),
 
-pub fn init(allocator: std.mem.Allocator, data: [2048]u8, owner: ?[64]u8, permissions: ?u8) Self {
+pub fn init(owner: ?[64]u8, permissions: ?u8) !Self {
     const owner_hash = owner orelse std.mem.zeroes([64]u8);
     const record_perms = permissions orelse 0;
-    return Self{ .owner = owner_hash, .data = data, .permissions = record_perms, .last_ping = 0, .allocator = allocator };
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    return Self{
+        .owner = owner_hash,
+        .data = try gpa.allocator().alloc(u8, 2048),
+        .permissions = record_perms,
+        .last_ping = 0,
+        .gpa = gpa,
+    };
 }
 
-pub fn default(allocator: std.mem.Allocator) Self {
+pub fn default() !Self {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     return Self{
-        .allocator = allocator,
         .owner = std.mem.zeroes([64]u8),
-        .data = std.mem.zeroes([2048]u8),
+        .data = try gpa.allocator().alloc(u8, 2048),
         .permissions = 0,
         .last_ping = 0,
+        .gpa = gpa,
     };
 }
 
@@ -31,28 +39,51 @@ pub fn getTypeSize() usize {
     return 64 + 2048 + 1 + 16;
 }
 
+fn allocator(self: *Self) std.mem.Allocator {
+    return self.gpa.allocator();
+}
+
+pub fn setData(self: *Self, data: []u8) !void {
+    if (data.len > 2048) return RecordsErr.RecordDataLengthTooLong;
+
+    const zeroes = try self.allocator().alloc(u8, 2048);
+    std.mem.copyForwards(u8, self.data, zeroes);
+    std.mem.copyForwards(u8, self.data, data);
+}
+
 pub fn hash(self: Self) !u64 {
-    const hash64 = std.hash.CityHash64.hash(try self.serialize());
+    var mut_self = self;
+    const hash64 = std.hash.CityHash64.hash(try mut_self.serialize());
     return hash64;
 }
 
-pub fn deserialize(self: Self, content: []u8) !Self {
-    if (getTypeSize() != content.len) return error.RecordInvalid;
-
-    const owner = content[0..64];
-    const data = content[64 .. 64 + 2048];
-    const permissions = content[64 + 2048];
-    const last_ping: i128 = @bitCast(mem_utils.sixteenBytesToU128(content[64 + 2048 + 1 .. 64 + 2048 + 16 + 1]));
-
-    return Self{ .owner = owner.*, .data = data.*, .permissions = permissions, .last_ping = last_ping, .allocator = self.allocator };
+pub fn getData(self: Self) []u8 {
+    return self.data[0..2048];
 }
 
-pub fn serialize(self: Self) ![]u8 {
-    var container = std.ArrayList(u8).init(self.allocator);
-    try container.appendSlice(&self.owner);
-    try container.appendSlice(&self.data);
-    try container.append(self.permissions);
-    try container.appendSlice(&mem_utils.u128ToSixteenBytes(@bitCast(self.last_ping), .little));
+pub fn deserialize(self: *Self, content: []u8) !void {
+    if (getTypeSize() != content.len) return error.RecordInvalid;
 
-    return container.items;
+    var container = try self.allocator().alloc(u8, Self.getTypeSize());
+    std.mem.copyForwards(u8, container, content);
+
+    std.mem.copyForwards(u8, &self.owner, container[0..64]);
+    std.mem.copyForwards(u8, self.data, container[64 .. 64 + 2048]);
+    self.permissions = container[64 + 2048];
+    self.last_ping = @bitCast(mem_utils.sixteenBytesToU128(container[64 + 2048 + 1 .. 64 + 2048 + 16 + 1]));
+}
+
+pub fn serialize(self: *Self) ![]u8 {
+    var container = try self.allocator().alloc(u8, Self.getTypeSize());
+    std.mem.copyForwards(u8, container[0..64], &self.owner);
+    std.mem.copyForwards(u8, container[64 .. 64 + 2048], self.getData());
+    container[64 + 2048] = self.permissions;
+    std.mem.copyForwards(u8, container[64 + 2048 + 1 .. 64 + 2048 + 16 + 1], &mem_utils.u128ToSixteenBytes(@bitCast(self.last_ping), .little));
+
+    std.log.debug("RSER: {any}", .{container});
+    return container;
+}
+
+pub fn deinit(self: Self) void {
+    return self.gpa.deinit();
 }

@@ -1,0 +1,5 @@
+STORE addr $(INSERT "Hello, world")
+
+FETCH @addr
+
+DELETE @addr

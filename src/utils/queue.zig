@@ -1,20 +1,67 @@
 const std = @import("std");
-const threading = @cImport({
-    @cInclude("pthread.h");
-});
 
-const Self = @This();
+pub fn Queue(comptime Context: type) type {
+    return struct {
+        const Self = @This();
 
-pub const Status = enum(u8) {
-    done,
-    retry,
-    failed,
-};
+        const InternalList = InternalQueue(Task);
 
-pub const Task = struct {
-    name: []const u8,
-    method: *const fn () Status,
-};
+        pub const Status = enum(u8) {
+            done,
+            retry,
+            failed,
+        };
+
+        pub const Task = struct {
+            name: []const u8,
+            method: *const fn (*Context) Status,
+        };
+
+        name: []const u8,
+        tasks: InternalList,
+        allocator: std.mem.Allocator,
+        logging_enabled: bool,
+        context: Context,
+        thread: ?std.Thread,
+
+        pub fn init(allocator: std.mem.Allocator, name: []const u8, ctx: Context) Self {
+            const items = InternalList.init(allocator);
+
+            return Self{
+                .name = name,
+                .tasks = items,
+                .allocator = allocator,
+                .logging_enabled = true,
+                .context = ctx,
+                .thread = null,
+            };
+        }
+
+        fn log(self: Self, comptime format: []const u8, extra: []const u8) void {
+            if (self.logging_enabled) std.log.info("Queue({s}): " ++ format, .{ self.name, extra });
+        }
+
+        fn _thread_loop(self: *Self) void {
+            var tasks = self.tasks;
+            while (true) {
+                if (tasks.dequeue()) |item| {
+                    switch (item.method(&self.context)) {
+                        .done => self.log("'{s}' done", item.name),
+                        .failed => self.log("'{s}' failed", item.name),
+                        .retry => {
+                            self.log("'{s}' re-queued", item.name);
+                            tasks.enqueue(item) catch unreachable; // Very risky but this shouldn't happen unless you are out of ram
+                        },
+                    }
+                }
+            }
+        }
+
+        pub fn start(self: *Self) !void {
+            self.thread = try std.Thread.spawn(.{}, _thread_loop, .{self});
+        }
+    };
+}
 
 pub fn InternalQueue(comptime Child: type) type {
     return struct {
@@ -53,42 +100,4 @@ pub fn InternalQueue(comptime Child: type) type {
             return _start.data;
         }
     };
-}
-
-const InternalList = InternalQueue(Task);
-
-name: []const u8,
-tasks: InternalList,
-allocator: std.mem.Allocator,
-
-pub fn init(allocator: std.mem.Allocator, name: []const u8) Self {
-    const items = InternalList.init(allocator);
-
-    return Self{
-        .name = name,
-        .tasks = items,
-        .allocator = allocator,
-    };
-}
-
-fn _thread_loop(self: Self) void {
-    var tasks = self.tasks;
-    while (true) {
-        if (tasks.dequeue()) |item| {
-            switch (item.method()) {
-                .done => std.log.info("Queue({s}): '{s}' done", .{ self.name, item.name }),
-                .failed => std.log.info("Queue({s}): '{s}' failed", .{ self.name, item.name }),
-                .retry => {
-                    std.log.info("Queue({s}): '{s}' re-queued", .{ self.name, item.name });
-                    tasks.enqueue(item) catch unreachable; // Very risky but this shouldn't happen unless you are out of ram
-                },
-            }
-        }
-    }
-}
-
-pub fn start(self: Self) !void {
-    const thread = try std.Thread.spawn(.{}, _thread_loop, .{self});
-
-    thread.join();
 }
