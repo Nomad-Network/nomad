@@ -35,19 +35,6 @@ pub fn build(b: *std.Build) void {
 
     b.installArtifact(exe);
 
-    switch (builtin.os.tag) {
-        .macos => {
-            lib.linkFramework("JavaScriptCore");
-            exe.linkFramework("JavaScriptCore");
-        },
-        .linux => @compileError("TODO: implement JSC for linux"),
-        .windows => @compileError("TODO: implement JSC for windows"),
-        else => |platform| {
-            const error_msg = std.fmt.comptimePrint("Unsupported platform {s}", .{@tagName(platform)});
-            @compileError(error_msg);
-        },
-    }
-
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
 

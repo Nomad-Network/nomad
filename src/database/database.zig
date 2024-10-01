@@ -96,7 +96,6 @@ fn deserialize(self: *Self, content: []u8) !Self {
 
     while (records_iter.next()) |bytes| {
         var record = try Record.default();
-        std.log.debug("DESR: {any}", .{bytes});
         try record.deserialize(bytes);
         try self.records.append(record);
     }

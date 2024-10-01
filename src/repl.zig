@@ -76,22 +76,6 @@ fn stringToCString(allocator: std.mem.Allocator, str: []u8) ![:0]u8 {
     return n;
 }
 
-fn runJavascript(allocator: std.mem.Allocator, javascript: []u8) !f64 {
-    const ctx_group = nomad.jsc.JSContextGroupCreate() orelse unreachable;
-    const global_ctx = nomad.jsc.JSGlobalContextCreateInGroup(ctx_group, null) orelse unreachable;
-
-    // var global_object = nomad.jsc.JSContextGetGlobalObject(global_ctx) orelse unreachable;
-
-    const ret = nomad.jsc.JSEvaluateScript(global_ctx, nomad.jsc.JSStringCreateWithUTF8CString(try stringToCString(allocator, javascript)), null, null, 1, null);
-
-    const n = nomad.jsc.JSValueToNumber(global_ctx, ret, null);
-
-    nomad.jsc.JSContextGroupRelease(ctx_group);
-    nomad.jsc.JSGlobalContextRelease(global_ctx);
-
-    return n;
-}
-
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -153,11 +137,7 @@ pub fn main() !void {
                 continue;
             }
 
-            if (std.mem.eql(u8, cmd_parts[0], "JS")) {
-                const jsArg = cmd_parts[1];
-                const r = runJavascript(allocator, jsArg[2 .. jsArg.len - 1]);
-                std.log.info("JS: {any}", .{r});
-            } else if (std.mem.eql(u8, cmd_parts[0], "INSERT")) {
+            if (std.mem.eql(u8, cmd_parts[0], "INSERT")) {
                 const data = cmd_parts[1];
 
                 var record = try nomad.Record.init(null, null);
