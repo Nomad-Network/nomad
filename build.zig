@@ -20,6 +20,12 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const nomad = b.addModule("nomad", .{
+        .root_source_file = b.path("src/nomad.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
     // For pthread
     lib.linkLibC();
     b.installArtifact(lib);
@@ -31,6 +37,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    exe.root_module.addImport("nomad", nomad);
     exe.root_module.addImport("clap", clap.module("clap"));
 
     b.installArtifact(exe);
