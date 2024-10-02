@@ -165,6 +165,12 @@ pub fn main() !void {
                 const record = try db.getRecord(hash);
 
                 std.debug.print("DATA: {any} {any}\n", .{ record.data.len, record.getData() });
+            } else if (std.mem.eql(u8, cmd_parts[0], "DELETE")) {
+                const hash_string = cmd_parts[1];
+                const hash = try std.fmt.parseUnsigned(u64, hash_string, 0);
+
+                const ok = try db.deleteRecord(hash);
+                std.debug.print("OK: {any}\n", .{ok});
             } else if (std.mem.eql(u8, cmd_parts[0], "PRINT")) {
                 try db.print();
             }

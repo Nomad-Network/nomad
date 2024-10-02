@@ -8,6 +8,8 @@ const Record = @import("./records.zig");
 
 const Self = @This();
 
+const LookupError = error{LookupDeletionError};
+
 const InternalType = std.AutoHashMap(u64, u64);
 
 records_table: InternalType,
@@ -37,6 +39,13 @@ pub fn getRecord(self: *Self, hash: u64) ?u64 {
     return self.records_table.get(hash);
 }
 
+pub fn deleteRecord(self: *Self, hash: u64, pos: u64) !void {
+    const ok = self.records_table.remove(hash);
+
+    if (!ok) return LookupError.LookupDeletionError;
+    return try self.deleted_table.put(hash, pos);
+}
+
 pub fn hasRecord(self: *Self, hash: u64) bool {
     return self.records_table.contains(hash);
 }
@@ -54,6 +63,7 @@ pub fn deserialize(self: *Self, content: []const u8, header: DataHeader) !Self {
     var table_iter = iter_utils.SteppedIterator(u8, 16){ .items = table_bytes };
 
     while (table_iter.next()) |entry| {
+        if (std.mem.eql(u8, entry, (std.mem.zeroes([16]u8)[0..]))) break;
         const hash_slice = entry[0..8];
         const idx_slice = entry[8..];
 
@@ -61,6 +71,16 @@ pub fn deserialize(self: *Self, content: []const u8, header: DataHeader) !Self {
         const idx = mem_utils.sliceToU64(idx_slice);
 
         try self.records_table.put(hash, idx);
+    }
+
+    while (table_iter.next()) |entry| {
+        const hash_slice = entry[0..8];
+        const idx_slice = entry[8..];
+
+        const hash = mem_utils.sliceToU64(hash_slice);
+        const idx = mem_utils.sliceToU64(idx_slice);
+
+        try self.deleted_table.put(hash, idx);
     }
 
     return self.*;
@@ -76,6 +96,8 @@ pub fn serialize(self: Self) ![]u8 {
         try buffer_list.appendSlice(&mem_utils.u64ToEightBytes(key.*, .little));
         try buffer_list.appendSlice(&mem_utils.u64ToEightBytes(self.records_table.get(key.*) orelse unreachable, .little));
     }
+
+    try buffer_list.appendSlice((std.mem.zeroes([16]u8)[0..]));
 
     while (deleted_iter.next()) |key| {
         try buffer_list.appendSlice(&mem_utils.u64ToEightBytes(key.*, .little));

@@ -84,6 +84,6 @@ pub fn serialize(self: *Self) ![]u8 {
     return container;
 }
 
-pub fn deinit(self: Self) void {
-    return self.gpa.deinit();
+pub fn deinit(self: *Self) void {
+    _ = self.gpa.deinit();
 }

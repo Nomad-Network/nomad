@@ -8,6 +8,8 @@ const iter_utils = @import("../utils/iter.zig");
 
 const Self = @This();
 
+const DBError = error{RecordDeletionError};
+
 const Context = struct {
     database_handle: ?*Self,
 };
@@ -49,7 +51,23 @@ pub fn addRecord(self: *Self, record: Record) !u64 {
         return hash;
     }
 
-    try self.lookup_table.addRecord(hash, self.records.items.len);
+    var pos = self.records.items.len;
+    const deleted_record_count = self.lookup_table.deleted_table.count();
+
+    if (deleted_record_count > 0) {
+        self.records.items[deleted_record_count].deinit();
+        self.records.items[deleted_record_count] = record;
+
+        var iterator = self.lookup_table.deleted_table.keyIterator();
+        const first_hash = iterator.next().?;
+        pos = self.lookup_table.deleted_table.get(first_hash.*).?;
+
+        const ok = self.lookup_table.deleted_table.remove(first_hash.*);
+
+        if (!ok) return DBError.RecordDeletionError;
+    }
+
+    try self.lookup_table.addRecord(hash, pos);
     try self.records.append(record);
 
     return hash;
@@ -88,6 +106,17 @@ pub fn getRecord(self: *Self, hash: u64) !Record {
     }
 
     return try Record.init(null, null);
+}
+
+pub fn deleteRecord(self: *Self, hash: u64) !bool {
+    const record_pos = self.lookup_table.getRecord(hash);
+
+    if (record_pos) |pos| {
+        try self.lookup_table.deleteRecord(hash, pos);
+        return true;
+    }
+
+    return false;
 }
 
 fn deserialize(self: *Self, content: []u8) !Self {
@@ -145,6 +174,7 @@ pub fn serialize(self: *Self) ![]u8 {
 
     for (self.deleted_records.items, 0..) |deleted_record, i| {
         var mut_record = deleted_record;
+        std.log.info("DEL: {any} {any}", .{ deleted_record, i });
         std.mem.copyForwards(
             u8,
             buffer_list[header.len + serialized_table.len + records_size + (Record.getTypeSize() * i) .. header.len + serialized_table.len + records_size + (Record.getTypeSize() * (i + 1))],
