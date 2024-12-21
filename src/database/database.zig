@@ -75,7 +75,7 @@ pub fn addRecord(self: *Self, record: Record) !u64 {
 }
 
 pub fn print(self: *Self) !void {
-    var string = std.ArrayList(u8).init(self.allocator);
+    var string = std.ArrayList(u8).init(self.gpa.allocator());
     try string.append('\n');
     try string.appendSlice("RECORDS TABLE\n");
 
@@ -83,7 +83,7 @@ pub fn print(self: *Self) !void {
 
     while (keys_iterator.next()) |key| {
         const value = self.lookup_table.records_table.get(key.*) orelse 0;
-        try string.appendSlice(try std.fmt.allocPrint(self.allocator, "0x{X:0>16}|\t0x{X:0>16}\n", .{ key.*, value }));
+        try string.appendSlice(try std.fmt.allocPrint(self.gpa.allocator(), "0x{X:0>16}|\t0x{X:0>16}\n", .{ key.*, value }));
     }
 
     try string.append('\n');
@@ -93,7 +93,7 @@ pub fn print(self: *Self) !void {
 
     while (keys_iterator.next()) |key| {
         const value = self.lookup_table.deleted_table.get(key.*) orelse 0;
-        try string.appendSlice(try std.fmt.allocPrint(self.allocator, "0x{X:0>16}|\t0x{X:0>16}\n", .{ key.*, value }));
+        try string.appendSlice(try std.fmt.allocPrint(self.gpa.allocator(), "0x{X:0>16}|\t0x{X:0>16}\n", .{ key.*, value }));
     }
 
     std.debug.print("{s}", .{string.items});
@@ -159,7 +159,7 @@ pub fn serialize(self: *Self) ![]u8 {
 
     const header = try self.header.serialize();
 
-    var buffer_list = try self.allocator.alloc(u8, header.len + serialized_table.len + records_size + deleted_records_size);
+    var buffer_list = try self.gpa.allocator().alloc(u8, header.len + serialized_table.len + records_size + deleted_records_size);
 
     std.mem.copyForwards(u8, buffer_list[0..header.len], header);
     std.mem.copyForwards(u8, buffer_list[header.len .. header.len + serialized_table.len], serialized_table);
