@@ -82,6 +82,7 @@ pub fn InternalQueue(comptime Child: type) type {
                 .end = null,
             };
         }
+        
         pub fn enqueue(this: *This, value: Child) !void {
             const node = try this.allocator.create(Node);
             node.* = .{ .data = value, .next = null };
@@ -89,15 +90,18 @@ pub fn InternalQueue(comptime Child: type) type {
             else this.start = node;
             this.end = node;
         }
+        
         pub fn dequeue(this: *This) ?Child {
             const _start = this.start orelse return null;
-            defer this.allocator.destroy(_start);
+            // defer this.allocator.destroy(_start);
             if (_start.next) |next|
                 this.start = next
             else {
                 this.start = null;
                 this.end = null;
             }
+            
+            std.log.debug("InternalQueue: {any}\n{any}", .{_start, this});
             return _start.data;
         }
     };
