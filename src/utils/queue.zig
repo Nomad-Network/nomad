@@ -94,6 +94,8 @@ pub fn InternalQueue(comptime Child: type) type {
         pub fn dequeue(this: *This) ?Child {
             const _start = this.start orelse return null;
             // defer this.allocator.destroy(_start);
+            
+            std.log.debug("InternalQueue: {any}\n{any}", .{_start, this});
             if (_start.next) |next|
                 this.start = next
             else {
@@ -101,7 +103,6 @@ pub fn InternalQueue(comptime Child: type) type {
                 this.end = null;
             }
             
-            std.log.debug("InternalQueue: {any}\n{any}", .{_start, this});
             return _start.data;
         }
     };
