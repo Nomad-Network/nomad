@@ -111,7 +111,7 @@ pub fn main() !void {
     if (res.args.help != 0) {
         try clap.help(std.io.getStdErr().writer(), clap.Help, &params, .{});
     } else if (res.args.file) |file| {
-        var db = try nomad.Database.init(allocator, file);
+        var db = try nomad.Database.init(file);
         var ctx = Context{};
         ctx.db_handle = &db;
 

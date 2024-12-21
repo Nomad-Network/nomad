@@ -14,31 +14,32 @@ const Context = struct {
     database_handle: ?*Self,
 };
 
+gpa: std.heap.GeneralPurposeAllocator(.{}),
 context: Context,
 header: Header,
 lookup_table: LookupTable,
-allocator: std.mem.Allocator,
 records: std.ArrayList(Record),
 deleted_records: std.ArrayList(Record),
 path: []const u8,
 content: []const u8,
 
-pub fn init(allocator: std.mem.Allocator, file: []const u8) !Self {
+pub fn init(file: []const u8) !Self {
     const exists = utils.fileExists(file, .{ .create_if_not_exist = true });
-
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    
     if (!exists) {
-        try utils.writeFile(file, try Header.default(allocator).serialize());
+        try utils.writeFile(file, try Header.default(gpa.allocator()).serialize());
     }
 
-    const content = try utils.readFile(allocator, file);
-    const header = Header.init(allocator, content);
-    var lookup_table = LookupTable.init(allocator);
+    const content = try utils.readFile(gpa.allocator(), file);
+    const header = Header.init(gpa.allocator(), content);
+    var lookup_table = LookupTable.init(gpa.allocator());
     lookup_table = try lookup_table.deserialize(content, header);
 
-    const records = std.ArrayList(Record).init(allocator);
-    const deleted_records = std.ArrayList(Record).init(allocator);
+    const records = std.ArrayList(Record).init(gpa.allocator());
+    const deleted_records = std.ArrayList(Record).init(gpa.allocator());
 
-    var self = Self{ .allocator = allocator, .path = file, .content = content, .header = header, .records = records, .lookup_table = lookup_table, .deleted_records = deleted_records, .context = Context{ .database_handle = null } };
+    var self = Self{ .gpa = gpa, .path = file, .content = content, .header = header, .records = records, .lookup_table = lookup_table, .deleted_records = deleted_records, .context = Context{ .database_handle = null, }, };
     self.context.database_handle = &self;
 
     return deserialize(&self, @constCast(content));
