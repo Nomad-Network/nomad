@@ -45,9 +45,7 @@ pub fn Queue(comptime Context: type) type {
         fn _thread_loop(self: *Self) void {
             var tasks = self.tasks;
             while (true) {
-                std.log.debug("{any}", .{tasks});
                 if (tasks.dequeue()) |item| {
-                    std.log.debug("{any}", .{item});
                     switch (item.method(item.ctx orelse self.context)) {
                         .done => self.log("'{s}' done", item.name),
                         .failed => self.log("'{s}' failed", item.name),
@@ -61,7 +59,6 @@ pub fn Queue(comptime Context: type) type {
         }
 
         pub fn start(self: *Self) !void {
-            std.log.info("Start: {any}", .{self});
             self.thread = try std.Thread.spawn(.{}, _thread_loop, .{self});
         }
     };
@@ -97,7 +94,6 @@ pub fn InternalQueue(comptime Child: type) type {
         pub fn dequeue(this: *This) ?Child {
             const _start = this.start orelse return null;
             
-            std.log.debug("InternalQueue: {any}\n{any}", .{_start, this});
             if (_start.next) |next|
                 this.start = next
             else {
