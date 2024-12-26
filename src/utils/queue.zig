@@ -45,6 +45,7 @@ pub fn Queue(comptime Context: type) type {
         fn _thread_loop(self: *Self) void {
             var tasks = self.tasks;
             while (true) {
+                std.log.debug("{any}", .{tasks});
                 if (tasks.dequeue()) |item| {
                     std.log.debug("{any}", .{item});
                     switch (item.method(item.ctx orelse self.context)) {
