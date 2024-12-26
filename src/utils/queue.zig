@@ -25,7 +25,7 @@ pub fn Queue(comptime Context: type) type {
         context: *Context,
         thread: ?std.Thread,
 
-        pub fn init(allocator: std.mem.Allocator, name: []const u8, ctx: Context) Self {
+        pub fn init(allocator: std.mem.Allocator, name: []const u8, ctx: *Context) Self {
             const items = InternalList.init(allocator);
 
             return Self{
@@ -33,7 +33,7 @@ pub fn Queue(comptime Context: type) type {
                 .tasks = items,
                 .allocator = allocator,
                 .logging_enabled = true,
-                .context = &ctx,
+                .context = ctx,
                 .thread = null,
             };
         }
