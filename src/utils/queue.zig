@@ -61,6 +61,7 @@ pub fn Queue(comptime Context: type) type {
         }
 
         pub fn start(self: *Self) !void {
+            std.log.info("Start: {any}", .{self});
             self.thread = try std.Thread.spawn(.{}, _thread_loop, .{self});
         }
     };
