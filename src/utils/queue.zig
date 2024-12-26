@@ -33,7 +33,7 @@ pub fn Queue(comptime Context: type) type {
                 .tasks = items,
                 .allocator = allocator,
                 .logging_enabled = true,
-                .context = @constCast(&ctx),
+                .context = &ctx,
                 .thread = null,
             };
         }
