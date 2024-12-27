@@ -39,7 +39,7 @@ pub fn Queue(comptime Context: type) type {
         }
 
         fn log(self: Self, comptime format: []const u8, extra: []const u8) void {
-            if (self.logging_enabled) try stdout.print("Queue({s}): " ++ format, .{ self.name, extra });
+            if (self.logging_enabled) stdout.print("Queue({s}): " ++ format, .{ self.name, extra }) catch return;
         }
 
         fn _thread_loop(self: *Self) void {
