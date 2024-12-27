@@ -15,7 +15,7 @@ pub fn Queue(comptime Context: type) type {
         pub const Task = struct {
             name: []const u8,
             method: *const fn (*Context) Status,
-            ctx: ?*Context,
+            ctx: *Context,
         };
 
         name: []const u8,
@@ -23,9 +23,8 @@ pub fn Queue(comptime Context: type) type {
         allocator: std.mem.Allocator,
         logging_enabled: bool,
         thread: ?std.Thread,
-        default_ctx: *Context,
 
-        pub fn init(allocator: std.mem.Allocator, name: []const u8, default_ctx: *Context) Self {
+        pub fn init(allocator: std.mem.Allocator, name: []const u8) Self {
             const items = InternalList.init(allocator);
 
             return Self{
@@ -33,8 +32,7 @@ pub fn Queue(comptime Context: type) type {
                 .tasks = items,
                 .allocator = allocator,
                 .logging_enabled = true,
-                .thread = null,
-                .default_ctx = default_ctx,
+                .thread = null
             };
         }
 
@@ -46,7 +44,7 @@ pub fn Queue(comptime Context: type) type {
             var tasks = self.tasks;
             while (true) {
                 if (tasks.dequeue()) |item| {
-                    switch (item.method(item.ctx orelse self.default_ctx)) {
+                    switch (item.method(item.ctx)) {
                         .done => self.log("'{s}' done", item.name),
                         .failed => self.log("'{s}' failed", item.name),
                         .retry => {
