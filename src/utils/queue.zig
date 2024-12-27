@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const stdout = std.io.getStdOut().writer();
+
 pub fn Queue(comptime Context: type) type {
     return struct {
         const Self = @This();
@@ -37,7 +39,7 @@ pub fn Queue(comptime Context: type) type {
         }
 
         fn log(self: Self, comptime format: []const u8, extra: []const u8) void {
-            if (self.logging_enabled) std.log.info("Queue({s}): " ++ format, .{ self.name, extra });
+            if (self.logging_enabled) stdout.print("Queue({s}): " ++ format, .{ self.name, extra });
         }
 
         fn _thread_loop(self: *Self) void {
@@ -58,6 +60,7 @@ pub fn Queue(comptime Context: type) type {
 
         pub fn start(self: *Self) !void {
             self.thread = try std.Thread.spawn(.{}, _thread_loop, .{self});
+            self.thread.detach();
         }
     };
 }
