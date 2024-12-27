@@ -44,7 +44,7 @@ pub fn Queue(comptime Context: type) type {
             var tasks = self.tasks;
             while (true) {
                 if (tasks.dequeue()) |item| {
-                    switch (item.method(item.ctx)) {
+                    switch (item.method(item.ctx orelse Context{})) {
                         .done => self.log("'{s}' done", item.name),
                         .failed => self.log("'{s}' failed", item.name),
                         .retry => {
